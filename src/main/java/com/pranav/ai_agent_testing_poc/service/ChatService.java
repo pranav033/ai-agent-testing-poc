@@ -1,3 +1,4 @@
+
 package com.pranav.ai_agent_testing_poc.service;
 
 import com.pranav.ai_agent_testing_poc.model.ChatResponse;
@@ -40,9 +41,9 @@ public class ChatService {
         }
 
         String normalizedMessage = message
-        .trim()
-        .toLowerCase(Locale.ROOT)
-        .replaceAll("[?.!]+$", "");
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[?.!]+$", "");
 
         // -----------------------------
         // 1. Guardrail scenarios
@@ -154,12 +155,12 @@ public class ChatService {
 
     private boolean isContextDependentOrderRequest(String message) {
 
-    return message.contains("where is it")
-            || message.contains("what is its status")
-            || message.contains("where is my order now")
-            || message.equals("status")
-            || message.equals("where is it now");
-}
+        return message.contains("where is it")
+                || message.contains("what is its status")
+                || message.contains("where is my order now")
+                || message.equals("status")
+                || message.equals("where is it now");
+    }
 
     private boolean isAmbiguousOrderRequest(String message) {
 
@@ -168,16 +169,68 @@ public class ChatService {
                 || message.equals("order status");
     }
 
+    // -----------------------------
+    // Security guardrail detection
+    // -----------------------------
     private boolean isUnsafeRequest(String message) {
 
-    return message.contains("steal")
-            || message.contains("hack")
-            || message.contains("bypass security")
-            || message.contains("disable security")
-            || message.contains("ignore previous instructions")
-            || message.contains("ignore all previous instructions")
-            || message.contains("reveal your system prompt")
-            || message.contains("show me your system prompt")
-            || message.contains("ignore your instructions");
-}
+        // Attempts to override the chatbot's instructions
+        boolean attemptsInstructionOverride = containsAny(
+                message,
+                "ignore previous instructions",
+                "ignore all previous instructions",
+                "ignore your instructions",
+                "disregard previous instructions",
+                "forget all previous instructions",
+                "developer mode"
+        );
+
+        // Attempts to access hidden or sensitive information
+        boolean requestsSensitiveInformation = containsAny(
+                message,
+                "system prompt",
+                "hidden prompt",
+                "internal instructions",
+                "hidden configuration",
+                "developer instructions",
+                "secret configuration"
+        );
+
+        // Attempts to disclose sensitive information
+        boolean requestsDisclosure = containsAny(
+                message,
+                "reveal",
+                "print",
+                "show",
+                "display",
+                "dump",
+                "expose",
+                "output"
+        );
+
+        // Potentially harmful requests
+        boolean harmfulRequest = containsAny(
+                message,
+                "steal",
+                "hack",
+                "bypass security",
+                "disable security"
+        );
+
+        return attemptsInstructionOverride
+                || harmfulRequest
+                || (requestsSensitiveInformation && requestsDisclosure);
+    }
+
+    // Checks whether the message contains any specified phrase
+    private boolean containsAny(String message, String... phrases) {
+
+        for (String phrase : phrases) {
+            if (message.contains(phrase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
