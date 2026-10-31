@@ -1,6 +1,8 @@
 
 package com.pranav.ai_agent_testing_poc.service;
 
+import com.pranav.ai_agent_testing_poc.security.AppUserDetails;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -8,7 +10,6 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -30,16 +31,18 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
-    // Generate a signed JWT for an authenticated user
-    public String generateToken(UserDetails userDetails) {
+    // Generate JWT using immutable user ID as subject
+    public String generateToken(AppUserDetails userDetails) {
 
         Date issuedAt = new Date();
+
         Date expiration = new Date(
                 issuedAt.getTime() + expirationMs
         );
 
         return Jwts.builder()
-                .subject(userDetails.getUsername())
+                .subject(userDetails.getUserId().toString())
+                .claim("username", userDetails.getUsername())
                 .issuedAt(issuedAt)
                 .expiration(expiration)
                 .signWith(signingKey)
@@ -49,26 +52,46 @@ public class JwtService {
     // Extract username from a verified JWT
     public String extractUsername(String token) {
 
-        return parseClaims(token).getSubject();
+        Claims claims = parseClaims(token);
+
+        return claims.get("username", String.class);
     }
 
-    // Validate token signature, expiration and username
+    // Extract immutable user ID from JWT subject
+    public String extractUserId(String token) {
+
+        Claims claims = parseClaims(token);
+
+        return claims.getSubject();
+    }
+
+    // Validate signature, user identity and expiration
     public boolean isTokenValid(
             String token,
-            UserDetails userDetails) {
+            AppUserDetails userDetails) {
 
         try {
+
             Claims claims = parseClaims(token);
 
-            String username = claims.getSubject();
+            String tokenUserId = claims.getSubject();
+
+            String tokenUsername =
+                    claims.get("username", String.class);
+
             Date expiration = claims.getExpiration();
 
-            return username != null
-                    && username.equals(userDetails.getUsername())
+            return tokenUserId != null
+                    && tokenUserId.equals(
+                            userDetails.getUserId().toString()
+                    )
+                    && tokenUsername != null
+                    && tokenUsername.equals(userDetails.getUsername())
                     && expiration != null
                     && expiration.after(new Date());
 
         } catch (JwtException | IllegalArgumentException exception) {
+
             return false;
         }
     }

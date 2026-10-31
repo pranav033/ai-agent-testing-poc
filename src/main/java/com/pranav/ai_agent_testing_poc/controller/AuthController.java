@@ -3,16 +3,17 @@ package com.pranav.ai_agent_testing_poc.controller;
 
 import com.pranav.ai_agent_testing_poc.model.LoginRequest;
 import com.pranav.ai_agent_testing_poc.model.LoginResponse;
+import com.pranav.ai_agent_testing_poc.security.AppUserDetails;
 import com.pranav.ai_agent_testing_poc.service.JwtService;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.AuthenticationException;
+
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -21,18 +22,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
-    private final UserDetailsService userDetailsService;
     private final JwtService jwtService;
     private final long expirationMs;
 
     public AuthController(
             AuthenticationManager authenticationManager,
-            UserDetailsService userDetailsService,
             JwtService jwtService,
             @Value("${app.jwt.expiration-ms}") long expirationMs) {
 
         this.authenticationManager = authenticationManager;
-        this.userDetailsService = userDetailsService;
         this.jwtService = jwtService;
         this.expirationMs = expirationMs;
     }
@@ -71,10 +69,14 @@ public class AuthController {
             );
         }
 
-        UserDetails userDetails =
-                userDetailsService.loadUserByUsername(
-                        authentication.getName()
-                );
+        if (!(authentication.getPrincipal()
+                instanceof AppUserDetails userDetails)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Authenticated user details are unavailable."
+            );
+        }
 
         String token = jwtService.generateToken(userDetails);
 

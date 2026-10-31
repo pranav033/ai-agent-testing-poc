@@ -5,6 +5,7 @@ import com.pranav.ai_agent_testing_poc.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,7 +21,19 @@ public class ChatService {
         this.conversationService = conversationService;
     }
 
-    public ChatResponse processMessage(String sessionId, String message) {
+    public ChatResponse processMessage(
+            UUID userId,
+            String sessionId,
+            String message) {
+
+        if (userId == null) {
+            return new ChatResponse(
+                    sessionId,
+                    "Authenticated user is required.",
+                    false,
+                    false
+            );
+        }
 
         if (sessionId == null || sessionId.isBlank()) {
             return new ChatResponse(
@@ -64,7 +77,11 @@ public class ChatService {
 
         if (referencedOrderId != null) {
 
-            conversationService.rememberOrder(sessionId, referencedOrderId);
+            conversationService.rememberOrder(
+                    userId,
+                    sessionId,
+                    referencedOrderId
+            );
 
             return getOrderResponse(sessionId, referencedOrderId);
         }
@@ -75,7 +92,10 @@ public class ChatService {
         if (isContextDependentOrderRequest(normalizedMessage)) {
 
             Long previousOrderId =
-                    conversationService.getLastReferencedOrder(sessionId);
+                    conversationService.getLastReferencedOrder(
+                            userId,
+                            sessionId
+                    );
 
             if (previousOrderId == null) {
                 return new ChatResponse(
@@ -174,7 +194,6 @@ public class ChatService {
     // -----------------------------
     private boolean isUnsafeRequest(String message) {
 
-        // Attempts to override the chatbot's instructions
         boolean attemptsInstructionOverride = containsAny(
                 message,
                 "ignore previous instructions",
@@ -185,7 +204,6 @@ public class ChatService {
                 "developer mode"
         );
 
-        // Attempts to access hidden or sensitive information
         boolean requestsSensitiveInformation = containsAny(
                 message,
                 "system prompt",
@@ -196,7 +214,6 @@ public class ChatService {
                 "secret configuration"
         );
 
-        // Attempts to disclose sensitive information
         boolean requestsDisclosure = containsAny(
                 message,
                 "reveal",
@@ -208,7 +225,6 @@ public class ChatService {
                 "output"
         );
 
-        // Potentially harmful requests
         boolean harmfulRequest = containsAny(
                 message,
                 "steal",
@@ -222,7 +238,6 @@ public class ChatService {
                 || (requestsSensitiveInformation && requestsDisclosure);
     }
 
-    // Checks whether the message contains any specified phrase
     private boolean containsAny(String message, String... phrases) {
 
         for (String phrase : phrases) {
