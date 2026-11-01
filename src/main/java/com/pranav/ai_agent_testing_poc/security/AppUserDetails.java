@@ -36,6 +36,13 @@ public final class AppUserDetails
         return userId;
     }
 
+    public boolean isAdmin() {
+    return authorities.stream()
+            .anyMatch(authority ->
+                    "ROLE_ADMIN".equals(authority.getAuthority())
+            );
+}
+
     @Override
     public String getUsername() {
         return username;

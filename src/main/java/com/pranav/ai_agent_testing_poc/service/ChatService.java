@@ -2,9 +2,12 @@
 package com.pranav.ai_agent_testing_poc.service;
 
 import com.pranav.ai_agent_testing_poc.model.ChatResponse;
+import com.pranav.ai_agent_testing_poc.model.Order;
+
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,13 +19,19 @@ public class ChatService {
             Pattern.compile("\\border\\s*(?:#|number\\s*)?(\\d+)\\b");
 
     private final ConversationService conversationService;
+    private final OrderService orderService;
 
-    public ChatService(ConversationService conversationService) {
+    public ChatService(
+            ConversationService conversationService,
+            OrderService orderService) {
+
         this.conversationService = conversationService;
+        this.orderService = orderService;
     }
 
     public ChatResponse processMessage(
             UUID userId,
+            boolean isAdmin,
             String sessionId,
             String message) {
 
@@ -76,14 +85,12 @@ public class ChatService {
         Long referencedOrderId = extractOrderId(normalizedMessage);
 
         if (referencedOrderId != null) {
-
-            conversationService.rememberOrder(
+            return getOrderResponse(
                     userId,
+                    isAdmin,
                     sessionId,
                     referencedOrderId
             );
-
-            return getOrderResponse(sessionId, referencedOrderId);
         }
 
         // -----------------------------
@@ -106,7 +113,13 @@ public class ChatService {
                 );
             }
 
-            return getOrderResponse(sessionId, previousOrderId);
+            // Ownership is checked again when retrieving the order.
+            return getOrderResponse(
+                    userId,
+                    isAdmin,
+                    sessionId,
+                    previousOrderId
+            );
         }
 
         // -----------------------------
@@ -143,34 +156,48 @@ public class ChatService {
         return null;
     }
 
+    // -----------------------------
+    // Order retrieval and authorization
+    // -----------------------------
     private ChatResponse getOrderResponse(
+            UUID userId,
+            boolean isAdmin,
             String sessionId,
             Long orderId) {
 
-        return switch (orderId.intValue()) {
+        Optional<Order> accessibleOrder =
+                orderService.findAccessibleOrder(
+                        userId,
+                        isAdmin,
+                        orderId
+                );
 
-            case 101 -> new ChatResponse(
-                    sessionId,
-                    "Order 101 is currently shipped.",
-                    true,
-                    false
-            );
-
-            case 102 -> new ChatResponse(
-                    sessionId,
-                    "Order 102 is currently out for delivery.",
-                    true,
-                    false
-            );
-
-            default -> new ChatResponse(
+        if (accessibleOrder.isEmpty()) {
+            return new ChatResponse(
                     sessionId,
                     "I couldn't find reliable information for order "
                             + orderId + ".",
                     false,
                     false
             );
-        };
+        }
+
+        Order order = accessibleOrder.get();
+
+        // Remember the order only after authorization succeeds.
+        conversationService.rememberOrder(
+                userId,
+                sessionId,
+                orderId
+        );
+
+        return new ChatResponse(
+                sessionId,
+                "Order " + order.orderId()
+                        + " is currently " + order.status() + ".",
+                true,
+                false
+        );
     }
 
     private boolean isContextDependentOrderRequest(String message) {

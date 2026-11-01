@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class AppUserDetailsService implements UserDetailsService {
@@ -22,21 +21,21 @@ public class AppUserDetailsService implements UserDetailsService {
     public AppUserDetailsService(PasswordEncoder passwordEncoder) {
 
         Account alice = new Account(
-                UUID.fromString("11111111-1111-4111-8111-111111111111"),
+                DemoUserIds.ALICE,
                 "alice",
                 passwordEncoder.encode("alice123"),
                 List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
 
         Account bob = new Account(
-                UUID.fromString("22222222-2222-4222-8222-222222222222"),
+                DemoUserIds.BOB,
                 "bob",
                 passwordEncoder.encode("bob123"),
                 List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
 
         Account admin = new Account(
-                UUID.fromString("33333333-3333-4333-8333-333333333333"),
+                DemoUserIds.ADMIN,
                 "admin",
                 passwordEncoder.encode("admin123"),
                 List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
@@ -53,7 +52,9 @@ public class AppUserDetailsService implements UserDetailsService {
     public AppUserDetails loadUserByUsername(String username) {
 
         if (username == null || username.isBlank()) {
-            throw new UsernameNotFoundException("Username is required.");
+            throw new UsernameNotFoundException(
+                    "Username is required."
+            );
         }
 
         Account account = accounts.get(
@@ -66,7 +67,6 @@ public class AppUserDetailsService implements UserDetailsService {
             );
         }
 
-        // Return a fresh principal for every lookup.
         return new AppUserDetails(
                 account.userId(),
                 account.username(),
@@ -76,7 +76,7 @@ public class AppUserDetailsService implements UserDetailsService {
     }
 
     private record Account(
-            UUID userId,
+            java.util.UUID userId,
             String username,
             String passwordHash,
             List<GrantedAuthority> authorities

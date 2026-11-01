@@ -43,6 +43,7 @@ public class ChatController {
 
         return chatService.processMessage(
                 authenticatedUser.getUserId(),
+                authenticatedUser.isAdmin(),
                 request.sessionId(),
                 request.message()
         );
